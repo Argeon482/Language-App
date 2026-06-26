@@ -855,7 +855,17 @@ export default function App() {
     setTranscriptFetchError(null);
     try {
       const response = await fetch(`/api/youtube-transcript?video=${encodeURIComponent(promptYoutubeId)}`);
-      const data = await response.json();
+      const responseText = await response.text();
+      
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        // Handle non-JSON responses (like "Not Found" or HTML error pages) gracefully
+        console.error('Non-JSON response received:', responseText);
+        throw new Error(responseText.trim() || `Server returned error status ${response.status}`);
+      }
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch transcript');
       }

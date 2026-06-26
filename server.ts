@@ -8,17 +8,42 @@ function extractVideoId(input: string): string {
   const trimmed = input.trim();
   if (trimmed.length === 11) return trimmed;
   
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = trimmed.match(regExp);
-  if (match && match[2].length === 11) {
-    return match[2];
+  // Try matching standard watch URLs, embed URLs, short URLs, and shorts URLs
+  const patterns = [
+    /youtube\.com\/watch\?v=([^#\&\?]+)/i,
+    /youtube\.com\/embed\/([^#\&\?]+)/i,
+    /youtube\.com\/v\/([^#\&\?]+)/i,
+    /youtu\.be\/([^#\&\?]+)/i,
+    /youtube\.com\/shorts\/([^#\&\?]+)/i,
+    /youtube\.com\/user\/[^\/]+\/([^#\&\?]+)/i,
+    /youtube\.com\/[^\/]+\/[^\/]+\/([^#\&\?]+)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    if (match && match[1] && match[1].length === 11) {
+      return match[1];
+    }
   }
+  
+  // If no patterns match but there is an 11-char string at the end of the URL
+  const matchEnd = trimmed.match(/[a-zA-Z0-9_-]{11}$/);
+  if (matchEnd) {
+    return matchEnd[0];
+  }
+
   return trimmed; // fallback
 }
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Simple Request Logger
+  app.use((req, res, next) => {
+    console.log(`[Express] ${req.method} ${req.url}`);
+    next();
+  });
 
   app.use(express.json());
 
@@ -73,7 +98,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('(.*)', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
