@@ -4,7 +4,7 @@ import fs from 'fs';
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.RENDER ? Number(process.env.PORT || 3000) : 3000;
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
   // Simple Request Logger
   app.use((req, res, next) => {
@@ -22,7 +22,7 @@ async function startServer() {
   });
 
   const distPath = path.join(process.cwd(), 'dist');
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(distPath);
 
   // Vite middleware for development
   if (!isProduction) {
@@ -40,7 +40,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} (isProduction: ${isProduction})`);
   });
 }
 
