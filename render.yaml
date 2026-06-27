@@ -1,6 +1,6 @@
 services:
   - type: web
     name: confieso-study-companion
-    env: static
+    env: node
     buildCommand: npm run build
-    publishPath: dist
+    startCommand: npm start

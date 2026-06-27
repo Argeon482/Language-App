@@ -5,7 +5,7 @@ import {
   HelpCircle, Keyboard, ArrowLeft, ArrowRight, Music, 
   AlertCircle, Headphones, Shuffle, Upload, Download, Film,
   Info, Sparkle, ExternalLink, CheckCircle2, Copy, Plus,
-  Trash2, FolderHeart, Languages, Settings, Users, Cloud, CloudOff, CloudLightning
+  Trash2, FolderHeart, Languages, Settings, Users, Cloud, CloudOff, CloudLightning, Clock
 } from 'lucide-react';
 import { SONG_DATA } from './data';
 import { Phrase, PhraseBreakdown, VocabTerm, SongData } from './types';
@@ -899,6 +899,119 @@ export default function App() {
     } finally {
       setIsFetchingTranscript(false);
     }
+  };
+
+  const parsedYoutubeId = useMemo(() => {
+    const trimmed = promptYoutubeId.trim();
+    if (!trimmed) return '';
+    if (trimmed.length === 11 && !trimmed.includes('/') && !trimmed.includes('?')) return trimmed;
+    try {
+      const patterns = [
+        /youtube\.com\/watch\?v=([^#\&\?]+)/i,
+        /youtube\.com\/embed\/([^#\&\?]+)/i,
+        /youtube\.com\/v\/([^#\&\?]+)/i,
+        /youtu\.be\/([^#\&\?]+)/i,
+        /youtube\.com\/shorts\/([^#\&\?]+)/i
+      ];
+      for (const pattern of patterns) {
+        const match = trimmed.match(pattern);
+        if (match && match[1] && match[1].length === 11) {
+          return match[1];
+        }
+      }
+    } catch (e) {}
+    const matchEnd = trimmed.match(/[a-zA-Z0-9_-]{11}$/);
+    if (matchEnd) return matchEnd[0];
+    return '';
+  }, [promptYoutubeId]);
+
+  const handleSmartParseAndClean = () => {
+    if (!promptTranscript.trim()) return;
+    
+    const lines = promptTranscript.split('\n');
+    const trimmedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
+    
+    const timestampRegex = /^(?:\d+:)?\d+:\d+(?:\.\d+)?$/;
+    let resultLines: string[] = [];
+    
+    let isAlternatingFormat = false;
+    if (trimmedLines.length >= 2) {
+      let matchCount = 0;
+      for (let i = 0; i < Math.min(trimmedLines.length, 10); i += 2) {
+        if (timestampRegex.test(trimmedLines[i])) {
+          matchCount++;
+        }
+      }
+      if (matchCount >= 2 || (trimmedLines.length === 2 && timestampRegex.test(trimmedLines[0]))) {
+        isAlternatingFormat = true;
+      }
+    }
+
+    if (isAlternatingFormat) {
+      for (let i = 0; i < trimmedLines.length; i += 2) {
+        const time = trimmedLines[i];
+        const text = trimmedLines[i + 1] || '';
+        if (timestampRegex.test(time)) {
+          resultLines.push(`${time} ${text}`);
+        } else {
+          resultLines.push(trimmedLines[i]);
+          if (trimmedLines[i + 1]) resultLines.push(trimmedLines[i + 1]);
+        }
+      }
+    } else {
+      resultLines = trimmedLines;
+    }
+
+    let cleaned: string[] = [];
+    for (const line of resultLines) {
+      const cleanedLine = line
+        .replace(/\[Music\]/gi, '')
+        .replace(/\[Música\]/gi, '')
+        .replace(/\[Applause\]/gi, '')
+        .replace(/\(Applause\)/gi, '')
+        .replace(/\[Background music\]/gi, '')
+        .replace(/\[Laughter\]/gi, '')
+        .replace(/\(Laughter\)/gi, '')
+        .replace(/\[Risas\]/gi, '')
+        .replace(/\[Música de fondo\]/gi, '')
+        .trim();
+
+      const timeMatch = cleanedLine.match(/^((?:\d+:)?\d+:\d+)/);
+      if (timeMatch) {
+        const timePart = timeMatch[1];
+        const textPart = cleanedLine.slice(timePart.length).trim();
+        if (textPart.length > 0) {
+          cleaned.push(`${timePart} ${textPart}`);
+        }
+      } else {
+        if (cleanedLine.length > 0) {
+          cleaned.push(cleanedLine);
+        }
+      }
+    }
+
+    setPromptTranscript(cleaned.join('\n'));
+  };
+
+  const handleAutoTimestamps = () => {
+    if (!promptTranscript.trim()) return;
+    
+    const lines = promptTranscript.split('\n');
+    const trimmedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
+    
+    const cleanedLines = trimmedLines.map(line => {
+      return line.replace(/^\[?(?:\d+:)?\d+:\d+\]?\s*/, '').trim();
+    }).filter(l => l.length > 0);
+
+    const timed = cleanedLines.map((line, idx) => {
+      const totalSeconds = idx * 5;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      return `${timeStr} ${line}`;
+    });
+
+    setPromptTranscript(timed.join('\n'));
   };
 
   // Incremental chunk options
@@ -1886,8 +1999,54 @@ Make sure to continue the sequential phrase IDs starting from ${startPhraseNum}.
                               )}
                             </button>
                           </div>
+
+                          {/* Manual Fetch Options / Helper Links */}
+                          <div className="mt-2 bg-slate-950/50 border border-slate-900 rounded-lg p-2 space-y-1.5">
+                            <span className="text-[9px] font-bold text-indigo-400 block uppercase tracking-wider">Manual Extraction Helpers (Render-friendly)</span>
+                            <div className="text-[9.5px] text-slate-400 leading-relaxed">
+                              Since direct scraping is often rate-limited or blocked by YouTube hosting restrictions, you can get the exact transcript/lyrics in seconds using these quick external links:
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-[9.5px] pt-1">
+                              {parsedYoutubeId ? (
+                                <>
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${parsedYoutubeId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-900 rounded text-indigo-300 font-medium flex items-center gap-1 transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Open Video on YouTube ↗
+                                  </a>
+                                  <a
+                                    href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${parsedYoutubeId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 bg-teal-950/60 hover:bg-teal-900 border border-teal-900 rounded text-teal-300 font-medium flex items-center gap-1 transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Get Subs via DownSub ↗
+                                  </a>
+                                  <a
+                                    href={`https://www.anthi.io/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-300 font-medium flex items-center gap-1 transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Anthi.io Extractor ↗
+                                  </a>
+                                </>
+                              ) : (
+                                <div className="text-slate-500 italic">
+                                  💡 Enter or paste a YouTube Link or ID above to generate direct, video-specific extraction helper links!
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
                           {transcriptFetchError && (
-                            <p className="text-[9px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                            <p className="text-[9px] text-rose-400 mt-1.5 flex items-center gap-1 font-medium bg-rose-950/25 border border-rose-900/35 p-1.5 rounded-lg">
                               <AlertCircle className="w-3 h-3 shrink-0 text-rose-500" />
                               {transcriptFetchError}
                             </p>
@@ -1958,8 +2117,41 @@ Make sure to continue the sequential phrase IDs starting from ${startPhraseNum}.
                           placeholder="e.g.&#10;0:01 [Music]&#10;0:12 Tengo la camisa negra&#10;0:16 Hoy mi amor está de luto"
                           value={promptTranscript}
                           onChange={(e) => setPromptTranscript(e.target.value)}
-                          className="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-300 focus:border-indigo-500 outline-none placeholder:text-slate-600 resize-none"
+                          className="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-300 focus:border-indigo-500 outline-none placeholder:text-slate-600"
                         />
+                        <div className="flex flex-wrap justify-between items-center gap-1.5 mt-1.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={handleSmartParseAndClean}
+                              disabled={!promptTranscript.trim()}
+                              className="px-2 py-1 text-[9px] font-medium bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-800/60 rounded text-indigo-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                              title="Cleans raw transcript pastes, handles alternating timestamp-lyric lines, and removes music labels like [Music]."
+                            >
+                              <Sparkle className="w-2.5 h-2.5" />
+                              🧹 Clean & Merge (Alternating)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAutoTimestamps}
+                              disabled={!promptTranscript.trim()}
+                              className="px-2 py-1 text-[9px] font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                              title="Converts plain copy-pasted lyrics into 5-second interval timed lines automatically."
+                            >
+                              <Clock className="w-2.5 h-2.5" />
+                              ⏱️ Auto-Timestamps (5s)
+                            </button>
+                          </div>
+                          {promptTranscript.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => setPromptTranscript('')}
+                              className="px-2 py-0.5 text-[9px] font-medium bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/40 rounded text-rose-300 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
