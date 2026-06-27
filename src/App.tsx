@@ -845,6 +845,8 @@ export default function App() {
   // YouTube transcript automatic retriever states
   const [isFetchingTranscript, setIsFetchingTranscript] = useState<boolean>(false);
   const [transcriptFetchError, setTranscriptFetchError] = useState<string | null>(null);
+  const [showManualGuide, setShowManualGuide] = useState<boolean>(false);
+  const [manualGuideTab, setManualGuideTab] = useState<'mobile' | 'desktop'>('mobile');
 
   const handleFetchTranscript = async () => {
     if (!promptYoutubeId.trim()) {
@@ -2045,11 +2047,117 @@ Make sure to continue the sequential phrase IDs starting from ${startPhraseNum}.
                             </div>
                           </div>
 
+                          {/* Step-by-Step Interactive Guide */}
+                          <button
+                            type="button"
+                            onClick={() => setShowManualGuide(!showManualGuide)}
+                            className="w-full mt-2 px-2.5 py-1.5 bg-indigo-950/30 hover:bg-indigo-950/65 border border-indigo-900/45 rounded-lg text-indigo-300 hover:text-indigo-200 text-[10px] font-bold flex items-center justify-between transition-all"
+                            id="manual-guide-panel"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                              {showManualGuide ? 'Hide Step-by-Step Manual Copy Guide' : 'Show Step-by-Step Phone / PC Copy Guide'}
+                            </span>
+                            <span className="text-[9px]">{showManualGuide ? '▲' : '▼'}</span>
+                          </button>
+
+                          {showManualGuide && (
+                            <div className="mt-2 bg-slate-950 border border-indigo-950 rounded-lg p-3 space-y-2.5 text-[10px] text-slate-300 shadow-xl">
+                              <div className="flex gap-1.5 border-b border-slate-900 pb-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setManualGuideTab('mobile')}
+                                  className={`flex-1 py-1 px-2 rounded font-bold text-center text-[10px] transition-all ${
+                                    manualGuideTab === 'mobile'
+                                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
+                                      : 'text-slate-500 hover:text-slate-300'
+                                  }`}
+                                >
+                                  📱 Phone (Chrome/Safari)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setManualGuideTab('desktop')}
+                                  className={`flex-1 py-1 px-2 rounded font-bold text-center text-[10px] transition-all ${
+                                    manualGuideTab === 'desktop'
+                                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
+                                      : 'text-slate-500 hover:text-slate-300'
+                                  }`}
+                                >
+                                  💻 Desktop PC Browser
+                                </button>
+                              </div>
+
+                              {manualGuideTab === 'mobile' ? (
+                                <ol className="space-y-2 list-decimal pl-4 text-slate-300 leading-relaxed">
+                                  <li>
+                                    Tap <span className="text-teal-400 font-semibold">Open Video on YouTube ↗</span> above (this launches the browser).
+                                  </li>
+                                  <li>
+                                    In Chrome or Safari on your phone, tap the browser menu (<strong>three dots "⋮"</strong> on Android Chrome, or the <strong>"aA"</strong> icon on iOS Safari address bar) and check <span className="text-indigo-300 font-semibold">"Request Desktop Site"</span> or <span className="text-indigo-300 font-semibold">"Desktop Version"</span>.
+                                  </li>
+                                  <li>
+                                    Once the desktop layout loads on your phone, tap <span className="text-indigo-300 font-semibold">"...more"</span> inside the description area below the video title.
+                                  </li>
+                                  <li>
+                                    Scroll to the bottom of the expanded description box and tap the <span className="text-teal-400 font-bold">Show transcript</span> button.
+                                  </li>
+                                  <li>
+                                    The subtitle transcript sidebar will pop open. Tap, hold, select, and copy the lines of captions.
+                                  </li>
+                                  <li>
+                                    Paste them into the box below and tap <strong className="text-indigo-400">🧹 Clean & Merge (Alternating)</strong> to automatically strip timestamps, remove noise tags (like <i>[Music]</i>), and join lines!
+                                  </li>
+                                </ol>
+                              ) : (
+                                <ol className="space-y-2 list-decimal pl-4 text-slate-300 leading-relaxed">
+                                  <li>
+                                    Click <span className="text-teal-400 font-semibold">Open Video on YouTube ↗</span> to open it in a new tab.
+                                  </li>
+                                  <li>
+                                    Click the <strong className="text-indigo-300">"...more"</strong> option in the video description box below the video title.
+                                  </li>
+                                  <li>
+                                    Scroll inside the description and click the light gray <strong className="text-teal-400">Show transcript</strong> button.
+                                  </li>
+                                  <li>
+                                    Highlight and copy the lines of transcripts that appear in the sidebar on the right of the video page.
+                                  </li>
+                                  <li>
+                                    Paste that copied block into the text box below.
+                                  </li>
+                                  <li>
+                                    Click the <strong className="text-indigo-400">🧹 Clean & Merge (Alternating)</strong> button below the text area to immediately auto-format timestamps and clean up sound/laughter debris!
+                                  </li>
+                                </ol>
+                              )}
+                            </div>
+                          )}
+
                           {transcriptFetchError && (
-                            <p className="text-[9px] text-rose-400 mt-1.5 flex items-center gap-1 font-medium bg-rose-950/25 border border-rose-900/35 p-1.5 rounded-lg">
-                              <AlertCircle className="w-3 h-3 shrink-0 text-rose-500" />
-                              {transcriptFetchError}
-                            </p>
+                            <div className="text-[9.5px] text-rose-300 mt-2 bg-rose-950/25 border border-rose-900/35 p-2.5 rounded-lg space-y-1.5">
+                              <div className="flex items-center gap-1.5 font-bold text-rose-400">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                                <span>Scraping Restricted or No Captions</span>
+                              </div>
+                              <p className="leading-relaxed">
+                                {transcriptFetchError}. YouTube frequently blocks third-party server scraper requests. Since this video has captions, you can easily copy and clean it manually in under 20 seconds!
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowManualGuide(true);
+                                  setTimeout(() => {
+                                    const el = document.getElementById('manual-guide-panel');
+                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                  }, 50);
+                                }}
+                                className="px-2 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 rounded text-[9px] font-bold text-indigo-300 transition-all flex items-center gap-1 inline-flex"
+                              >
+                                <HelpCircle className="w-2.5 h-2.5 text-indigo-400" />
+                                Open step-by-step guide below ↓
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
